@@ -41,8 +41,43 @@ jobs:
           timeout_minutes: 5
           max_attempts: 5
           command: composer update --${{ matrix.stability }} --prefer-dist --no-interaction --no-progress
-#          command: composer install --prefer-dist --no-interaction --no-progress
 
       - name: Execute tests
         run: vendor/bin/pest --coverage
 
+  linux_with_opcache_and_jit_tests:
+    runs-on: ubuntu-22.04
+
+    strategy:
+      fail-fast: true
+      matrix:
+        php: [ 8.1, 8.2 ]
+        # only test latest version with opcache and jit
+        stability: [ prefer-stable ]
+
+    name: PHP ${{ matrix.php }} with JIT
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: json, posix, pcntl, opcache
+          # force JIT to be enabled for everything
+          ini-values: error_reporting=E_ALL, opcache.enable_cli=1, opcache.jit=1205, opcache.jit_buffer_size=256M
+          tools: composer:v2
+          # JIT conflicts with xdebug, pcov, etc.
+          coverage: none
+
+      - name: Install dependencies
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 5
+          max_attempts: 5
+          command: composer update --${{ matrix.stability }} --prefer-dist --no-interaction --no-progress
+
+      - name: Execute tests
+        run: vendor/bin/pest
